@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Forensic Tool - Blockchain Integrated</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1>🔍 Cyber Forensic Investigation Platform</h1>
+            <p class="subtitle">Blockchain-Integrated Evidence Management System</p>
+            <div class="header-info">
+                <span>👤 Investigator: <strong>{{ investigator }}</strong></span>
+                <span>🏢 Organization: <strong>{{ organization }}</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container main-content">
+        
+        <!-- Status Section -->
+        <section class="card status-card">
+            <h2>📊 Session Status</h2>
+            <div id="sessionStatus" class="status-info">
+                <p>No active session. Start a forensic investigation to begin.</p>
+            </div>
+        </section>
+
+        <!-- Configuration Check -->
+        <section class="card">
+            <h2>⚙️ System Configuration</h2>
+            <button onclick="checkConfiguration()" class="btn btn-secondary">Check Configuration</button>
+            <button onclick="checkTools()" class="btn btn-secondary">Check Available Tools</button>
+            <div id="configResult" class="result-box"></div>
+        </section>
+
+        <!-- Forensic Execution -->
+        <section class="card">
+            <h2>🔬 Start Forensic Investigation</h2>
+            <p>Select forensic types to execute:</p>
+            
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="forensic_all" value="all" onchange="toggleAllForensics(this)">
+                    <strong>All Forensics</strong>
+                </label>
+            </div>
+            
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" class="forensic-type" value="disk">
+                    💾 Disk Forensics
+                </label>
+                <label>
+                    <input type="checkbox" class="forensic-type" value="memory">
+                    🧠 Memory Forensics
+                </label>
+                <label>
+                    <input type="checkbox" class="forensic-type" value="network">
+                    🌐 Network Forensics
+                </label>
+                <label>
+                    <input type="checkbox" class="forensic-type" value="log">
+                    📝 Log Analysis
+                </label>
+            </div>
+            
+            <button onclick="startForensics()" class="btn btn-primary" id="startBtn">
+                🚀 Start Investigation
+            </button>
+            
+            <div id="forensicProgress" class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">Initializing...</p>
+            </div>
+            
+            <div id="forensicResult" class="result-box"></div>
+        </section>
+
+        <!-- Blockchain Registration -->
+        <section class="card">
+            <h2>⛓️ Blockchain Registration</h2>
+            <p>Register evidence on Sepolia testnet for immutable chain of custody.</p>
+            
+            <button onclick="checkBalance()" class="btn btn-secondary">Check Wallet Balance</button>
+            <button onclick="registerBlockchain()" class="btn btn-primary" id="blockchainBtn" disabled>
+                📝 Register on Blockchain
+            </button>
+            
+            <div id="blockchainResult" class="result-box"></div>
+        </section>
+
+        <!-- Report Generation -->
+        <section class="card">
+            <h2>📄 Generate Forensic Report</h2>
+            <p>Generate comprehensive legal report using AI analysis.</p>
+            
+            <button onclick="generateReport()" class="btn btn-primary" id="reportBtn" disabled>
+                📊 Generate Report
+            </button>
+            
+            <div id="reportProgress" class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="reportProgressFill"></div>
+                </div>
+                <p id="reportProgressText">Generating report...</p>
+            </div>
+            
+            <div id="reportResult" class="result-box"></div>
+            
+            <div id="downloadSection" style="display: none; margin-top: 20px;">
+                <h3>Download Reports:</h3>
+                <button onclick="downloadReport('json')" class="btn btn-success">
+                    📥 Download JSON Report
+                </button>
+                <button onclick="downloadReport('text')" class="btn btn-success">
+                    📥 Download Text Report
+                </button>
+            </div>
+        </section>
+
+        <!-- Evidence Verification -->
+        <section class="card">
+            <h2>✅ Verify Evidence Integrity</h2>
+            <p>Verify evidence hash against blockchain record.</p>
+            
+            <div class="input-group">
+                <label for="evidenceId">Evidence ID:</label>
+                <input type="text" id="evidenceId" placeholder="EVD_20240101_120000">
+            </div>
+            
+            <div class="input-group">
+                <label for="evidenceHash">Evidence Hash:</label>
+                <input type="text" id="evidenceHash" placeholder="SHA-256 hash">
+            </div>
+            
+            <button onclick="verifyEvidence()" class="btn btn-secondary">
+                🔍 Verify
+            </button>
+            
+            <div id="verifyResult" class="result-box"></div>
+        </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Cyber Forensic Tool | Blockchain-Integrated Evidence Management</p>
+            <p class="small">Built with Flask, Web3.py, Groq LLM | Deployed on Sepolia Testnet</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forensic Analysis - Cyber Forensic Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1>🔬 Forensic Analysis Dashboard</h1>
+            <p class="subtitle">Real-time Evidence Collection & Analysis</p>
+            <div class="header-info">
+                <span>Session ID: <strong id="sessionId">{{ session_id }}</strong></span>
+                <span>Status: <strong id="analysisStatus">Running</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container main-content">
+        
+        <!-- Progress Overview -->
+        <section class="card status-card">
+            <h2>📊 Analysis Progress</h2>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="overallProgress">0%</div>
+                </div>
+                <p id="overallStatus">Initializing forensic analysis...</p>
+            </div>
+        </section>
+
+        <!-- Disk Forensics -->
+        <section class="card">
+            <h2>💾 Disk Forensics</h2>
+            <div class="forensic-module" id="diskModule">
+                <div class="module-status">
+                    <span class="status-badge" id="diskStatus">⏳ Pending</span>
+                    <span class="module-time" id="diskTime">--:--</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="diskProgress">0%</div>
+                    </div>
+                </div>
+                <div class="module-findings" id="diskFindings">
+                    <p class="text-muted">Waiting to start...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Memory Forensics -->
+        <section class="card">
+            <h2>🧠 Memory Forensics</h2>
+            <div class="forensic-module" id="memoryModule">
+                <div class="module-status">
+                    <span class="status-badge" id="memoryStatus">⏳ Pending</span>
+                    <span class="module-time" id="memoryTime">--:--</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="memoryProgress">0%</div>
+                    </div>
+                </div>
+                <div class="module-findings" id="memoryFindings">
+                    <p class="text-muted">Waiting to start...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Network Forensics -->
+        <section class="card">
+            <h2>🌐 Network Forensics</h2>
+            <div class="forensic-module" id="networkModule">
+                <div class="module-status">
+                    <span class="status-badge" id="networkStatus">⏳ Pending</span>
+                    <span class="module-time" id="networkTime">--:--</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="networkProgress">0%</div>
+                    </div>
+                </div>
+                <div class="module-findings" id="networkFindings">
+                    <p class="text-muted">Waiting to start...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Log Analysis -->
+        <section class="card">
+            <h2>📝 Log Analysis</h2>
+            <div class="forensic-module" id="logModule">
+                <div class="module-status">
+                    <span class="status-badge" id="logStatus">⏳ Pending</span>
+                    <span class="module-time" id="logTime">--:--</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="logProgress">0%</div>
+                    </div>
+                </div>
+                <div class="module-findings" id="logFindings">
+                    <p class="text-muted">Waiting to start...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Evidence Summary -->
+        <section class="card">
+            <h2>📋 Evidence Summary</h2>
+            <div id="evidenceSummary" class="result-box info">
+                <p>Analysis in progress. Evidence summary will appear here once all modules complete.</p>
+            </div>
+            <div class="button-group" style="margin-top: 20px;">
+                <button onclick="viewDetailedResults()" class="btn btn-secondary" id="viewDetailsBtn" disabled>
+                    📄 View Detailed Results
+                </button>
+                <button onclick="proceedToBlockchain()" class="btn btn-primary" id="blockchainBtn" disabled>
+                    ⛓️ Proceed to Blockchain Registration
+                </button>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Cyber Forensic Tool | Forensic Analysis Module</p>
+        </div>
+    </footer>
+
+    <script>
+        const sessionId = "{{ session_id }}";
+        
+        // Simulate forensic analysis progress
+        function updateModuleProgress(module, progress, status, findings) {
+            document.getElementById(`${module}Progress`).style.width = progress + '%';
+            document.getElementById(`${module}Progress`).textContent = progress + '%';
+            document.getElementById(`${module}Status`).textContent = status;
+            
+            if (findings) {
+                document.getElementById(`${module}Findings`).innerHTML = findings;
+            }
+        }
+
+        function updateOverallProgress(progress, status) {
+            document.getElementById('overallProgress').style.width = progress + '%';
+            document.getElementById('overallProgress').textContent = progress + '%';
+            document.getElementById('overallStatus').textContent = status;
+        }
+
+        // Auto-refresh to get analysis status
+        let pollInterval;
+        
+        function pollAnalysisStatus() {
+            fetch(`/api/session-status`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'active') {
+                        // Update UI based on status
+                        console.log('Analysis status:', data);
+                    }
+                })
+                .catch(error => console.error('Error polling status:', error));
+        }
+
+        function viewDetailedResults() {
+            window.location.href = `/results/${sessionId}`;
+        }
+
+        function proceedToBlockchain() {
+            window.location.href = `/?session=${sessionId}#blockchain`;
+        }
+
+        // Start polling when page loads
+        window.onload = function() {
+            pollInterval = setInterval(pollAnalysisStatus, 2000);
+            
+            // Simulate progress (in real implementation, this would come from backend)
+            setTimeout(() => updateModuleProgress('disk', 100, '✅ Complete', '<p>5,678 files analyzed</p>'), 3000);
+            setTimeout(() => updateModuleProgress('memory', 100, '✅ Complete', '<p>145 processes analyzed</p>'), 5000);
+            setTimeout(() => updateModuleProgress('network', 100, '✅ Complete', '<p>23 connections found</p>'), 7000);
+            setTimeout(() => updateModuleProgress('log', 100, '✅ Complete', '<p>1,234 log entries examined</p>'), 9000);
+            
+            setTimeout(() => {
+                updateOverallProgress(100, 'All forensic modules completed!');
+                document.getElementById('viewDetailsBtn').disabled = false;
+                document.getElementById('blockchainBtn').disabled = false;
+                document.getElementById('analysisStatus').textContent = 'Completed';
+                document.getElementById('analysisStatus').style.color = '#28a745';
+            }, 10000);
+        };
+
+        window.onbeforeunload = function() {
+            clearInterval(pollInterval);
+        };
+    </script>
+</body>
+</html>
