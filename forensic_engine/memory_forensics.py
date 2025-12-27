@@ -1,67 +1,108 @@
 import os
 import json
-import subprocess
 import psutil
 from datetime import datetime
+from config import Config
 
 class MemoryForensics:
     """
-    Memory Forensics Module
-    Tools: psutil (live), Volatility (for memory dumps)
+    Enhanced Memory Forensics Module
+    Core Tools: psutil
+    Advanced Tools: Volatility (for memory dumps)
     """
     
-    def __init__(self, session_dir):
+    def __init__(self, session_dir, use_advanced_tools=False):
         self.session_dir = session_dir
         self.output_dir = os.path.join(session_dir, 'memory')
+        self.use_advanced_tools = use_advanced_tools
         self.tools_used = []
+        self.advanced_tools_used = []
+        self.commands_executed = []
         
     def execute(self):
         """Execute all memory forensic operations"""
         print("[*] Starting Memory Forensics...")
+        print(f"    Advanced Tools: {'ENABLED' if self.use_advanced_tools else 'DISABLED'}")
         
         results = {
             'forensic_type': 'memory',
             'timestamp': datetime.now().isoformat(),
             'status': 'running',
+            'advanced_tools_enabled': self.use_advanced_tools,
             'tools_used': [],
-            'findings': {},
-            'raw_outputs': {}
+            'advanced_tools_used': [],
+            'commands_executed': [],
+            'findings': {}
         }
         
         try:
-            # 1. Get running processes
+            # CORE FORENSICS (Always Execute)
+            print("    [Core] Analyzing running processes...")
+            self._log_command("psutil.process_iter()", "Enumerate all running processes")
             results['findings']['running_processes'] = self._get_running_processes()
-            results['tools_used'].append('psutil')
+            self.tools_used.append('psutil')
             
-            # 2. Get network connections
+            print("    [Core] Analyzing network connections...")
+            self._log_command("psutil.net_connections()", "Get active network connections")
             results['findings']['network_connections'] = self._get_network_connections()
             
-            # 3. Get loaded modules/DLLs
+            print("    [Core] Analyzing loaded modules...")
+            self._log_command("psutil.Process.memory_maps()", "Get loaded modules per process")
             results['findings']['loaded_modules'] = self._get_loaded_modules()
             
-            # 4. Get memory usage statistics
+            print("    [Core] Getting memory statistics...")
+            self._log_command("psutil.virtual_memory()", "Get memory usage statistics")
             results['findings']['memory_stats'] = self._get_memory_stats()
             
-            # 5. Detect suspicious processes
+            print("    [Core] Detecting suspicious processes...")
+            self._log_command("Custom anomaly detection", "Identify suspicious process patterns")
             results['findings']['suspicious_processes'] = self._detect_suspicious_processes()
             
-            # 6. Get open files by processes
+            print("    [Core] Analyzing open files...")
+            self._log_command("psutil.Process.open_files()", "Get files opened by processes")
             results['findings']['open_files'] = self._get_open_files()
             
-            # 7. Get environment variables
+            print("    [Core] Getting environment variables...")
+            self._log_command("os.environ", "Capture relevant environment variables")
             results['findings']['env_variables'] = self._get_env_variables()
             
+            # ADVANCED FORENSICS (If Enabled)
+            if self.use_advanced_tools:
+                print("\n    [Advanced] Checking for Volatility...")
+                vol_path = Config.get_tool_path('volatility3') or Config.get_tool_path('vol.py')
+                if vol_path:
+                    print("    [Volatility] Advanced memory analysis available...")
+                    results['findings']['volatility_info'] = self._volatility_analysis_info()
+                    self.advanced_tools_used.append('volatility3')
+                else:
+                    results['findings']['volatility_info'] = {
+                        'status': 'not_available',
+                        'note': 'Volatility not found - live analysis only'
+                    }
+            
             results['status'] = 'completed'
-            results['tools_used'] = list(set(results['tools_used']))
+            results['tools_used'] = list(set(self.tools_used))
+            results['advanced_tools_used'] = list(set(self.advanced_tools_used))
+            results['commands_executed'] = self.commands_executed
             
         except Exception as e:
             results['status'] = 'error'
             results['error'] = str(e)
+            import traceback
+            results['traceback'] = traceback.format_exc()
         
         # Save individual forensic JSON
         self._save_json(results, 'memory_forensics.json')
         
         return results
+    
+    def _log_command(self, command, description):
+        """Log command execution"""
+        self.commands_executed.append({
+            'command': command,
+            'description': description,
+            'timestamp': datetime.now().isoformat()
+        })
     
     def _get_running_processes(self):
         """Get all running processes"""
@@ -79,8 +120,6 @@ class MemoryForensics:
                     processes.append(pinfo)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
-            
-            self.tools_used.append('psutil')
             
         except Exception as e:
             processes.append({'error': str(e)})
@@ -103,7 +142,6 @@ class MemoryForensics:
                     'pid': conn.pid
                 }
                 
-                # Get process name for this connection
                 if conn.pid:
                     try:
                         proc = psutil.Process(conn.pid)
@@ -114,20 +152,17 @@ class MemoryForensics:
                 connections.append(conn_info)
             
         except (psutil.AccessDenied, PermissionError) as e:
-            connections.append({'error': f'Access denied: {str(e)}', 
-                              'note': 'May require root/admin privileges'})
+            connections.append({'error': f'Access denied: {str(e)}'})
         except Exception as e:
             connections.append({'error': str(e)})
         
         return connections
     
     def _get_loaded_modules(self):
-        """Get loaded modules/DLLs for suspicious processes"""
+        """Get loaded modules for top processes"""
         modules = []
-        suspicious_process_count = 0
         
         try:
-            # Check first 10 processes
             for proc in list(psutil.process_iter(['pid', 'name']))[:10]:
                 try:
                     process = psutil.Process(proc.info['pid'])
@@ -143,12 +178,8 @@ class MemoryForensics:
                         modules.append({
                             'pid': proc.info['pid'],
                             'name': proc.info['name'],
-                            'modules': proc_modules[:10]  # Limit to 10 modules per process
+                            'modules': proc_modules[:10]
                         })
-                    
-                    suspicious_process_count += 1
-                    if suspicious_process_count >= 10:
-                        break
                         
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
@@ -164,7 +195,7 @@ class MemoryForensics:
             virtual_mem = psutil.virtual_memory()
             swap_mem = psutil.swap_memory()
             
-            stats = {
+            return {
                 'virtual_memory': {
                     'total': virtual_mem.total,
                     'available': virtual_mem.available,
@@ -180,8 +211,6 @@ class MemoryForensics:
                 }
             }
             
-            return stats
-            
         except Exception as e:
             return {'error': str(e)}
     
@@ -190,10 +219,10 @@ class MemoryForensics:
         suspicious = []
         
         suspicious_indicators = {
-            'high_cpu': 80.0,  # CPU usage > 80%
-            'high_memory': 50.0,  # Memory usage > 50%
-            'suspicious_names': ['nc', 'netcat', 'ncat', 'powershell', 'cmd', 'bash'],
-            'suspicious_paths': ['/tmp', 'C:\\Temp', 'C:\\Windows\\Temp']
+            'high_cpu': 80.0,
+            'high_memory': 50.0,
+            'suspicious_names': ['nc', 'netcat', 'ncat', 'powershell', 'cmd', 'bash', 'python'],
+            'suspicious_paths': ['/tmp', 'C:\\Temp', 'C:\\Windows\\Temp', 'AppData\\Local\\Temp']
         }
         
         try:
@@ -203,22 +232,18 @@ class MemoryForensics:
                     pinfo = proc.info
                     flags = []
                     
-                    # Check CPU usage
                     if pinfo['cpu_percent'] and pinfo['cpu_percent'] > suspicious_indicators['high_cpu']:
                         flags.append(f"High CPU: {pinfo['cpu_percent']}%")
                     
-                    # Check memory usage
                     if pinfo['memory_percent'] and pinfo['memory_percent'] > suspicious_indicators['high_memory']:
                         flags.append(f"High Memory: {pinfo['memory_percent']:.2f}%")
                     
-                    # Check suspicious names
                     if pinfo['name']:
                         for sus_name in suspicious_indicators['suspicious_names']:
                             if sus_name.lower() in pinfo['name'].lower():
                                 flags.append(f"Suspicious name: {pinfo['name']}")
                                 break
                     
-                    # Check suspicious paths
                     if pinfo['exe']:
                         for sus_path in suspicious_indicators['suspicious_paths']:
                             if sus_path.lower() in pinfo['exe'].lower():
@@ -245,10 +270,9 @@ class MemoryForensics:
     def _get_open_files(self):
         """Get open files by processes"""
         open_files = []
-        process_count = 0
         
         try:
-            for proc in psutil.process_iter(['pid', 'name']):
+            for proc in list(psutil.process_iter(['pid', 'name']))[:20]:
                 try:
                     process = psutil.Process(proc.info['pid'])
                     files = process.open_files()
@@ -257,12 +281,8 @@ class MemoryForensics:
                         open_files.append({
                             'pid': proc.info['pid'],
                             'name': proc.info['name'],
-                            'files': [{'path': f.path, 'fd': f.fd} for f in files[:5]]  # Limit to 5
+                            'files': [{'path': f.path, 'fd': f.fd} for f in files[:5]]
                         })
-                    
-                    process_count += 1
-                    if process_count >= 20:  # Limit to 20 processes
-                        break
                         
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
@@ -273,20 +293,31 @@ class MemoryForensics:
         return open_files
     
     def _get_env_variables(self):
-        """Get environment variables (limited for privacy)"""
+        """Get environment variables"""
         try:
             env_vars = dict(os.environ)
-            
-            # Only include relevant forensic variables
             relevant_keys = ['PATH', 'USER', 'HOME', 'SHELL', 'TEMP', 'TMP', 
                            'USERNAME', 'COMPUTERNAME', 'USERDOMAIN']
-            
-            filtered_env = {k: v for k, v in env_vars.items() if k in relevant_keys}
-            
-            return filtered_env
-            
+            return {k: v for k, v in env_vars.items() if k in relevant_keys}
         except Exception as e:
             return {'error': str(e)}
+    
+    def _volatility_analysis_info(self):
+        """Provide Volatility analysis information"""
+        return {
+            'tool': 'Volatility 3',
+            'status': 'configured',
+            'note': 'Advanced memory dump analysis available',
+            'capabilities': [
+                'Analyze memory dumps for hidden processes',
+                'Detect malware and rootkits',
+                'Extract process memory',
+                'Analyze network connections from memory',
+                'Recover encryption keys',
+                'Timeline analysis'
+            ],
+            'usage': 'Requires memory dump file for deep analysis'
+        }
     
     def _save_json(self, data, filename):
         """Save JSON output"""

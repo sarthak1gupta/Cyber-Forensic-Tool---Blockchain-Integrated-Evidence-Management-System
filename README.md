@@ -353,13 +353,8 @@ sudo apt-get install sleuthkit foremost
 
 ## 📝 License
 
-This project is licensed under the MIT License - see LICENSE file for details.
+This project is licensed under the GNU License - see LICENSE file for details.
 
----
-
-## 👥 Authors
-
-- Your Name - Initial work - [YourGitHub](https://github.com/yourusername)
 
 ---
 
@@ -370,14 +365,6 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - **Groq** - LLM API
 - **Ethereum** - Blockchain platform
 - **Web3.py** - Ethereum integration
-
----
-
-## 📞 Support
-
-For issues and questions:
-- GitHub Issues: https://github.com/yourusername/cyber-forensic-tool/issues
-- Email: your.email@example.com
 
 ---
 

@@ -22,6 +22,29 @@
     <!-- Main Container -->
     <div class="container main-content">
         
+        <!-- System Information -->
+        <section class="card">
+            <h2>💻 System Information</h2>
+            <div id="systemInfo" class="system-info">
+                <p>Loading system information...</p>
+            </div>
+        </section>
+
+        <!-- Tools Availability -->
+        <section class="card">
+            <h2>🔧 Available Tools</h2>
+            <div id="toolsInfo" class="tools-info">
+                <div class="tools-section">
+                    <h3>Core Tools (Always Available)</h3>
+                    <div id="coreTools" class="tool-list">Loading...</div>
+                </div>
+                <div class="tools-section">
+                    <h3>Advanced Tools</h3>
+                    <div id="advancedTools" class="tool-list">Loading...</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Status Section -->
         <section class="card status-card">
             <h2>📊 Session Status</h2>
@@ -69,6 +92,17 @@
                 </label>
             </div>
             
+            <!-- Advanced Tools Option -->
+            <div class="checkbox-group advanced-tools-option">
+                <label style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px;">
+                    <input type="checkbox" id="useAdvancedTools" style="width: 20px; height: 20px;">
+                    <strong>🚀 Use Advanced Tools</strong>
+                    <span style="display: block; font-size: 0.9em; margin-top: 5px; opacity: 0.9;">
+                        Enable TSK, Foremost, Wireshark for enhanced analysis
+                    </span>
+                </label>
+            </div>
+            
             <button onclick="startForensics()" class="btn btn-primary" id="startBtn">
                 🚀 Start Investigation
             </button>
@@ -80,7 +114,16 @@
                 <p id="progressText">Initializing...</p>
             </div>
             
+            <!-- Command Execution Log -->
+            <div id="commandLog" class="command-log" style="display: none;">
+                <h3>📋 Command Execution Log</h3>
+                <div id="commandLogContent" class="command-log-content"></div>
+            </div>
+            
             <div id="forensicResult" class="result-box"></div>
+            
+            <!-- Detailed Findings -->
+            <div id="detailedFindings" class="detailed-findings" style="display: none;"></div>
         </section>
 
         <!-- Blockchain Registration -->

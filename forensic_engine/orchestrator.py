@@ -9,15 +9,22 @@ class ForensicOrchestrator:
     Main orchestrator for coordinating forensic operations
     """
     
-    def __init__(self, session_dir, session_id):
+    def __init__(self, session_dir, session_id, use_advanced_tools=False):
         self.session_dir = session_dir
         self.session_id = session_id
+        self.use_advanced_tools = use_advanced_tools
         self.evidence_data = {
             'session_id': session_id,
             'timestamp': datetime.now().isoformat(),
             'investigator': Config.INVESTIGATOR_ID,
             'os_source': self._detect_os(),
-            'forensics': {}
+            'advanced_tools_enabled': use_advanced_tools,
+            'forensics': {},
+            'tools_summary': {
+                'core_tools_used': [],
+                'advanced_tools_used': [],
+                'commands_executed': []
+            }
         }
         
     def _detect_os(self):
@@ -44,28 +51,34 @@ class ForensicOrchestrator:
             try:
                 if forensic_type == 'disk':
                     from forensic_engine.disk_forensics import DiskForensics
-                    df = DiskForensics(self.session_dir)
+                    df = DiskForensics(self.session_dir, self.use_advanced_tools)
                     results['disk'] = df.execute()
+                    self._update_tools_summary(results['disk'])
                     
                 elif forensic_type == 'memory':
                     from forensic_engine.memory_forensics import MemoryForensics
-                    mf = MemoryForensics(self.session_dir)
+                    mf = MemoryForensics(self.session_dir, self.use_advanced_tools)
                     results['memory'] = mf.execute()
+                    self._update_tools_summary(results['memory'])
                     
                 elif forensic_type == 'network':
                     from forensic_engine.network_forensics import NetworkForensics
-                    nf = NetworkForensics(self.session_dir)
+                    nf = NetworkForensics(self.session_dir, self.use_advanced_tools)
                     results['network'] = nf.execute()
+                    self._update_tools_summary(results['network'])
                     
                 elif forensic_type == 'log':
                     from forensic_engine.log_forensics import LogForensics
-                    lf = LogForensics(self.session_dir)
+                    lf = LogForensics(self.session_dir, self.use_advanced_tools)
                     results['log'] = lf.execute()
+                    self._update_tools_summary(results['log'])
                 
                 print(f"[+] {forensic_type} forensics completed")
                 
             except Exception as e:
                 print(f"[!] Error in {forensic_type} forensics: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 results[forensic_type] = {
                     'status': 'error',
                     'error': str(e)
@@ -73,6 +86,29 @@ class ForensicOrchestrator:
         
         self.evidence_data['forensics'] = results
         return self.evidence_data
+    
+    def _update_tools_summary(self, forensic_result):
+        """Update tools summary with what was used"""
+        if isinstance(forensic_result, dict):
+            # Add core tools
+            core_tools = forensic_result.get('tools_used', [])
+            self.evidence_data['tools_summary']['core_tools_used'].extend(core_tools)
+            
+            # Add advanced tools
+            advanced_tools = forensic_result.get('advanced_tools_used', [])
+            self.evidence_data['tools_summary']['advanced_tools_used'].extend(advanced_tools)
+            
+            # Add commands
+            commands = forensic_result.get('commands_executed', [])
+            self.evidence_data['tools_summary']['commands_executed'].extend(commands)
+        
+        # Remove duplicates
+        self.evidence_data['tools_summary']['core_tools_used'] = list(set(
+            self.evidence_data['tools_summary']['core_tools_used']
+        ))
+        self.evidence_data['tools_summary']['advanced_tools_used'] = list(set(
+            self.evidence_data['tools_summary']['advanced_tools_used']
+        ))
     
     def save_master_json(self):
         """Save master JSON with all forensic data"""
@@ -131,15 +167,36 @@ class ForensicOrchestrator:
         import shutil
         
         available = {
-            'disk': [],
-            'memory': [],
-            'network': [],
-            'log': []
+            'core_tools': {
+                'python_libraries': Config.CORE_TOOLS['python_libraries'],
+                'system_commands': []
+            },
+            'advanced_tools': {
+                'disk': [],
+                'memory': [],
+                'network': [],
+                'available': False
+            }
         }
         
-        for category, tools in Config.TOOLS.items():
-            for tool_name, tool_cmd in tools.items():
-                if shutil.which(tool_cmd):
-                    available[category].append(tool_name)
+        # Check system commands for current OS
+        os_commands = Config.CORE_TOOLS['system_commands'].get(Config.OS_TYPE, [])
+        for cmd in os_commands:
+            if shutil.which(cmd) or Config.get_tool_path(cmd):
+                available['core_tools']['system_commands'].append(cmd)
+        
+        # Check advanced tools
+        for category, tools_dict in Config.OPTIONAL_TOOLS.items():
+            for tool_suite, tool_info in tools_dict.items():
+                for tool_name in tool_info['tools']:
+                    tool_path = Config.get_tool_path(tool_name)
+                    if tool_path or shutil.which(tool_name):
+                        available['advanced_tools'][category].append({
+                            'name': tool_name,
+                            'suite': tool_suite,
+                            'path': tool_path or shutil.which(tool_name),
+                            'description': tool_info['description']
+                        })
+                        available['advanced_tools']['available'] = True
         
         return available

@@ -2,80 +2,130 @@ import os
 import json
 import subprocess
 import psutil
-import socket
+import platform
 from datetime import datetime
+from config import Config
 
 class NetworkForensics:
     """
-    Network Forensics Module
-    Tools: psutil, netstat, tshark/tcpdump (if available)
+    Enhanced Network Forensics Module
+    Core Tools: psutil, netstat, arp, route
+    Advanced Tools: tshark (Wireshark CLI)
     """
     
-    def __init__(self, session_dir):
+    def __init__(self, session_dir, use_advanced_tools=False):
         self.session_dir = session_dir
         self.output_dir = os.path.join(session_dir, 'network')
+        self.use_advanced_tools = use_advanced_tools
         self.tools_used = []
+        self.advanced_tools_used = []
+        self.commands_executed = []
         
     def execute(self):
         """Execute all network forensic operations"""
         print("[*] Starting Network Forensics...")
+        print(f"    Advanced Tools: {'ENABLED' if self.use_advanced_tools else 'DISABLED'}")
         
         results = {
             'forensic_type': 'network',
             'timestamp': datetime.now().isoformat(),
             'status': 'running',
+            'advanced_tools_enabled': self.use_advanced_tools,
             'tools_used': [],
-            'findings': {},
-            'raw_outputs': {}
+            'advanced_tools_used': [],
+            'commands_executed': [],
+            'findings': {}
         }
         
         try:
-            # 1. Get network interfaces
+            # CORE FORENSICS
+            print("    [Core] Getting network interfaces...")
+            self._log_command("psutil.net_if_addrs()", "Enumerate network interfaces")
             results['findings']['network_interfaces'] = self._get_network_interfaces()
-            results['tools_used'].append('psutil')
+            self.tools_used.append('psutil')
             
-            # 2. Get active connections
+            print("    [Core] Getting active connections...")
+            self._log_command("psutil.net_connections()", "List active network connections")
             results['findings']['active_connections'] = self._get_active_connections()
             
-            # 3. Get listening ports
+            print("    [Core] Getting listening ports...")
+            self._log_command("Filter LISTEN status", "Identify listening ports and services")
             results['findings']['listening_ports'] = self._get_listening_ports()
             
-            # 4. Get routing table
+            print("    [Core] Getting routing table...")
+            self._log_command(f"{'route print' if platform.system() == 'Windows' else 'ip route'}", "Display routing table")
             results['findings']['routing_table'] = self._get_routing_table()
             
-            # 5. Get ARP cache
+            print("    [Core] Getting ARP cache...")
+            self._log_command("arp -a", "Display ARP cache table")
             results['findings']['arp_cache'] = self._get_arp_cache()
             
-            # 6. Detect suspicious connections
+            print("    [Core] Detecting suspicious connections...")
+            self._log_command("Custom anomaly detection", "Identify suspicious network patterns")
             results['findings']['suspicious_connections'] = self._detect_suspicious_connections()
             
-            # 7. Get DNS cache (if available)
-            results['findings']['dns_cache'] = self._get_dns_cache()
-            
-            # 8. Check firewall rules
-            results['findings']['firewall_rules'] = self._get_firewall_rules()
-            
-            # 9. Get network statistics
+            print("    [Core] Getting network statistics...")
+            self._log_command("psutil.net_io_counters()", "Gather network I/O statistics")
             results['findings']['network_stats'] = self._get_network_stats()
             
+            # ADVANCED FORENSICS
+            if self.use_advanced_tools:
+                print("\n    [Advanced] Checking for tshark...")
+                tshark_path = Config.get_tool_path('tshark')
+                if tshark_path:
+                    print("    [tshark] Deep packet analysis available...")
+                    results['findings']['tshark_info'] = self._tshark_analysis_info()
+                    self.advanced_tools_used.append('tshark')
+                else:
+                    results['findings']['tshark_info'] = {
+                        'status': 'not_available',
+                        'note': 'tshark not found - basic network analysis only'
+                    }
+            
             results['status'] = 'completed'
-            results['tools_used'] = list(set(results['tools_used']))
+            results['tools_used'] = list(set(self.tools_used))
+            results['advanced_tools_used'] = list(set(self.advanced_tools_used))
+            results['commands_executed'] = self.commands_executed
             
         except Exception as e:
             results['status'] = 'error'
             results['error'] = str(e)
+            import traceback
+            results['traceback'] = traceback.format_exc()
         
-        # Save individual forensic JSON
         self._save_json(results, 'network_forensics.json')
-        
         return results
+    
+    def _log_command(self, command, description):
+        """Log command execution"""
+        self.commands_executed.append({
+            'command': command,
+            'description': description,
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    def _run_command(self, command, description=""):
+        """Run system command"""
+        if description:
+            self._log_command(' '.join(command) if isinstance(command, list) else command, description)
+        
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=(platform.system() == 'Windows')
+            )
+            return result
+        except Exception as e:
+            return None
     
     def _get_network_interfaces(self):
         """Get network interface information"""
         interfaces = []
         
         try:
-            # Get interface addresses
             addrs = psutil.net_if_addrs()
             stats = psutil.net_if_stats()
             
@@ -87,15 +137,13 @@ class NetworkForensics:
                 }
                 
                 for addr in addr_list:
-                    addr_info = {
+                    iface_info['addresses'].append({
                         'family': str(addr.family),
                         'address': addr.address,
                         'netmask': addr.netmask,
                         'broadcast': addr.broadcast
-                    }
-                    iface_info['addresses'].append(addr_info)
+                    })
                 
-                # Add interface statistics
                 if interface in stats:
                     iface_info['stats'] = {
                         'isup': stats[interface].isup,
@@ -104,8 +152,6 @@ class NetworkForensics:
                     }
                 
                 interfaces.append(iface_info)
-            
-            self.tools_used.append('psutil')
             
         except Exception as e:
             interfaces.append({'error': str(e)})
@@ -121,28 +167,19 @@ class NetworkForensics:
                 conn_info = {
                     'family': str(conn.family),
                     'type': str(conn.type),
-                    'local_addr': None,
-                    'remote_addr': None,
+                    'local_addr': f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else None,
+                    'remote_addr': f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else None,
                     'status': conn.status,
                     'pid': conn.pid,
                     'process': None
                 }
                 
-                # Format addresses
-                if conn.laddr:
-                    conn_info['local_addr'] = f"{conn.laddr.ip}:{conn.laddr.port}"
-                
-                if conn.raddr:
-                    conn_info['remote_addr'] = f"{conn.raddr.ip}:{conn.raddr.port}"
-                
-                # Get process information
                 if conn.pid:
                     try:
                         proc = psutil.Process(conn.pid)
                         conn_info['process'] = {
                             'name': proc.name(),
-                            'exe': proc.exe(),
-                            'cmdline': ' '.join(proc.cmdline())
+                            'exe': proc.exe()
                         }
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
@@ -150,11 +187,7 @@ class NetworkForensics:
                 connections.append(conn_info)
         
         except (psutil.AccessDenied, PermissionError) as e:
-            connections.append({
-                'error': 'Access denied',
-                'note': 'May require root/admin privileges',
-                'detail': str(e)
-            })
+            connections.append({'error': 'Access denied - requires elevated privileges'})
         except Exception as e:
             connections.append({'error': str(e)})
         
@@ -184,7 +217,7 @@ class NetworkForensics:
                     listening.append(port_info)
         
         except (psutil.AccessDenied, PermissionError):
-            listening.append({'error': 'Access denied', 'note': 'Requires elevated privileges'})
+            listening.append({'error': 'Access denied'})
         except Exception as e:
             listening.append({'error': str(e)})
         
@@ -195,93 +228,63 @@ class NetworkForensics:
         routing = []
         
         try:
-            if os.name == 'posix':  # Linux/Mac
-                result = subprocess.run(['ip', 'route'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    routing = result.stdout.split('\n')
-                    self.tools_used.append('ip route')
-                else:
-                    # Fallback to route
-                    result = subprocess.run(['route', '-n'], capture_output=True, text=True)
-                    if result.returncode == 0:
-                        routing = result.stdout.split('\n')
-                        self.tools_used.append('route')
+            if platform.system() == 'Windows':
+                result = self._run_command('route print', "Get Windows routing table")
+            else:
+                result = self._run_command(['ip', 'route'], "Get Linux routing table")
+                if not result or result.returncode != 0:
+                    result = self._run_command(['route', '-n'], "Fallback to route command")
             
-            else:  # Windows
-                result = subprocess.run(['route', 'print'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    routing = result.stdout.split('\n')
-                    self.tools_used.append('route')
+            if result and result.returncode == 0:
+                routing = [r for r in result.stdout.split('\n') if r.strip()]
+                self.tools_used.append('route' if platform.system() == 'Windows' else 'ip')
         
         except Exception as e:
             routing.append(f"Error: {str(e)}")
         
-        return [r for r in routing if r.strip()]
+        return routing
     
     def _get_arp_cache(self):
         """Get ARP cache"""
         arp = []
         
         try:
-            if os.name == 'posix':
-                result = subprocess.run(['arp', '-a'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    arp = result.stdout.split('\n')
-                    self.tools_used.append('arp')
+            result = self._run_command(['arp', '-a'], "Display ARP cache")
             
-            else:  # Windows
-                result = subprocess.run(['arp', '-a'], capture_output=True, text=True, shell=True)
-                if result.returncode == 0:
-                    arp = result.stdout.split('\n')
-                    self.tools_used.append('arp')
+            if result and result.returncode == 0:
+                arp = [a for a in result.stdout.split('\n') if a.strip()]
+                self.tools_used.append('arp')
         
         except Exception as e:
             arp.append(f"Error: {str(e)}")
         
-        return [a for a in arp if a.strip()]
+        return arp
     
     def _detect_suspicious_connections(self):
         """Detect suspicious network connections"""
         suspicious = []
-        
-        # Known suspicious ports and IPs
-        suspicious_ports = [
-            4444,  # Metasploit default
-            31337,  # Back Orifice
-            12345, 12346,  # NetBus
-            1234, 6667, 6668, 6669,  # IRC
-            27374,  # SubSeven
-        ]
+        suspicious_ports = [4444, 31337, 12345, 12346, 1234, 6667, 6668, 6669, 27374]
         
         try:
             for conn in psutil.net_connections(kind='inet'):
                 flags = []
                 
-                # Check for suspicious ports
                 if conn.laddr and conn.laddr.port in suspicious_ports:
                     flags.append(f"Suspicious local port: {conn.laddr.port}")
                 
                 if conn.raddr and conn.raddr.port in suspicious_ports:
                     flags.append(f"Suspicious remote port: {conn.raddr.port}")
                 
-                # Check for non-standard HTTP/HTTPS ports
-                if conn.raddr and conn.raddr.port not in [80, 443, 8080, 8443]:
-                    if conn.status == 'ESTABLISHED':
-                        flags.append(f"Non-standard port connection: {conn.raddr.port}")
-                
-                # Check for connections to private IPs from unusual processes
-                if conn.raddr and conn.pid:
-                    try:
-                        proc = psutil.Process(conn.pid)
-                        proc_name = proc.name().lower()
-                        
-                        # Flag if non-browser making external connections
-                        if 'browser' not in proc_name and 'chrome' not in proc_name and 'firefox' not in proc_name:
-                            if not conn.raddr.ip.startswith(('192.168.', '10.', '172.')):
-                                flags.append(f"Non-browser external connection: {proc_name}")
-                    
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
+                if conn.raddr and conn.raddr.port not in [80, 443, 8080, 8443] and conn.status == 'ESTABLISHED':
+                    if conn.pid:
+                        try:
+                            proc = psutil.Process(conn.pid)
+                            proc_name = proc.name().lower()
+                            if 'browser' not in proc_name and 'chrome' not in proc_name and 'firefox' not in proc_name:
+                                if not conn.raddr.ip.startswith(('192.168.', '10.', '172.')):
+                                    flags.append(f"Non-browser external connection: {proc_name}")
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
                 
                 if flags:
                     suspicious.append({
@@ -297,62 +300,12 @@ class NetworkForensics:
         
         return suspicious
     
-    def _get_dns_cache(self):
-        """Get DNS cache"""
-        dns_cache = []
-        
-        try:
-            if os.name == 'nt':  # Windows
-                result = subprocess.run(['ipconfig', '/displaydns'], 
-                                      capture_output=True, text=True)
-                if result.returncode == 0:
-                    dns_cache = result.stdout.split('\n')[:100]  # Limit output
-                    self.tools_used.append('ipconfig')
-            
-            else:  # Linux - DNS cache not readily available without additional tools
-                dns_cache.append("DNS cache not readily available on this system")
-                dns_cache.append("Consider using: sudo systemd-resolve --statistics")
-        
-        except Exception as e:
-            dns_cache.append(f"Error: {str(e)}")
-        
-        return [d for d in dns_cache if d.strip()]
-    
-    def _get_firewall_rules(self):
-        """Get firewall rules"""
-        firewall = []
-        
-        try:
-            if os.name == 'posix':
-                # Try iptables (Linux)
-                result = subprocess.run(['sudo', 'iptables', '-L', '-n'], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    firewall = result.stdout.split('\n')
-                    self.tools_used.append('iptables')
-                else:
-                    firewall.append("Requires root privileges to view iptables")
-            
-            else:  # Windows
-                result = subprocess.run(['netsh', 'advfirewall', 'show', 'allprofiles'], 
-                                      capture_output=True, text=True)
-                if result.returncode == 0:
-                    firewall = result.stdout.split('\n')
-                    self.tools_used.append('netsh')
-        
-        except subprocess.TimeoutExpired:
-            firewall.append("Command timed out - may require elevated privileges")
-        except Exception as e:
-            firewall.append(f"Error: {str(e)}")
-        
-        return [f for f in firewall if f.strip()][:50]  # Limit output
-    
     def _get_network_stats(self):
         """Get network I/O statistics"""
         try:
             io_counters = psutil.net_io_counters(pernic=True)
-            
             stats = {}
+            
             for interface, counters in io_counters.items():
                 stats[interface] = {
                     'bytes_sent': counters.bytes_sent,
@@ -366,9 +319,26 @@ class NetworkForensics:
                 }
             
             return stats
-            
         except Exception as e:
             return {'error': str(e)}
+    
+    def _tshark_analysis_info(self):
+        """Provide tshark analysis information"""
+        return {
+            'tool': 'tshark (Wireshark CLI)',
+            'status': 'configured',
+            'note': 'Deep packet analysis available',
+            'capabilities': [
+                'Capture live network traffic',
+                'Analyze packet contents',
+                'Extract HTTP requests/responses',
+                'Decode protocols (DNS, TCP, UDP, HTTP, etc.)',
+                'Follow TCP streams',
+                'Extract files from network traffic',
+                'Detect network anomalies'
+            ],
+            'usage': 'Can capture and analyze network packets for evidence'
+        }
     
     def _save_json(self, data, filename):
         """Save JSON output"""

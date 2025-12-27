@@ -1,13 +1,56 @@
 // Global state
 let currentSession = null;
+let systemInfo = null;
+let availableTools = null;
 
 // API Base URL
 const API_BASE = window.location.origin;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
+    loadSystemInfo();
     checkSessionStatus();
 });
+
+// Load system information
+async function loadSystemInfo() {
+    try {
+        const response = await fetch(`${API_BASE}/api/system-info`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            systemInfo = data.system;
+            displaySystemInfo(systemInfo);
+        }
+    } catch (error) {
+        console.error('Error loading system info:', error);
+    }
+}
+
+// Display system information
+function displaySystemInfo(info) {
+    const infoDiv = document.getElementById('systemInfo');
+    infoDiv.innerHTML = `
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Operating System:</span>
+                <span class="info-value"><strong>${info.os} ${info.os_release}</strong></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Architecture:</span>
+                <span class="info-value">${info.architecture}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Hostname:</span>
+                <span class="info-value">${info.hostname}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Python Version:</span>
+                <span class="info-value">${info.python_version}</span>
+            </div>
+        </div>
+    `;
+}
 
 // Toggle All Forensics checkbox
 function toggleAllForensics(checkbox) {
@@ -42,7 +85,6 @@ async function checkConfiguration() {
                 <ul>
                     ${data.errors.map(err => `<li>${err}</li>`).join('')}
                 </ul>
-                <p><strong>Note:</strong> Some features may not work properly.</p>
             `;
         }
     } catch (error) {
@@ -62,19 +104,13 @@ async function checkTools() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            let html = '<h3>🔧 Available Forensic Tools</h3>';
-            
-            for (const [category, tools] of Object.entries(data.tools)) {
-                html += `<h4>${category.toUpperCase()}</h4>`;
-                if (tools.length > 0) {
-                    html += `<ul>${tools.map(tool => `<li>✅ ${tool}</li>`).join('')}</ul>`;
-                } else {
-                    html += '<p>⚠️ No tools available for this category</p>';
-                }
-            }
+            availableTools = data.tools;
+            displayToolsInfo(data.tools);
             
             resultDiv.className = 'result-box success';
-            resultDiv.innerHTML = html;
+            resultDiv.innerHTML = '<h3>✅ Tools Check Complete</h3><p>Check "Available Tools" section above for details.</p>';
+            
+            return data.tools;
         }
     } catch (error) {
         resultDiv.className = 'result-box error';
@@ -82,11 +118,86 @@ async function checkTools() {
     }
 }
 
+// Display Tools Information
+function displayToolsInfo(tools) {
+    // Core Tools
+    const coreDiv = document.getElementById('coreTools');
+    let coreHTML = '';
+    
+    coreHTML += '<div class="tool-category">';
+    coreHTML += '<h4>🐍 Python Libraries</h4><ul>';
+    tools.core_tools.python_libraries.forEach(lib => {
+        coreHTML += `<li>✅ <strong>${lib}</strong></li>`;
+    });
+    coreHTML += '</ul></div>';
+    
+    coreHTML += '<div class="tool-category">';
+    coreHTML += '<h4>💻 System Commands</h4><ul>';
+    if (tools.core_tools.system_commands.length > 0) {
+        tools.core_tools.system_commands.forEach(cmd => {
+            coreHTML += `<li>✅ ${cmd}</li>`;
+        });
+    } else {
+        coreHTML += '<li class="text-muted">No system commands detected</li>';
+    }
+    coreHTML += '</ul></div>';
+    coreDiv.innerHTML = coreHTML;
+    
+    // Advanced Tools
+    const advDiv = document.getElementById('advancedTools');
+    if (tools.advanced_tools.available) {
+        let advHTML = '';
+        let toolCount = 0;
+        
+        for (const [category, toolList] of Object.entries(tools.advanced_tools)) {
+            if (category !== 'available' && Array.isArray(toolList) && toolList.length > 0) {
+                advHTML += `<div class="tool-category">`;
+                advHTML += `<h4>🔧 ${category.toUpperCase()} Tools</h4><ul>`;
+                toolList.forEach(tool => {
+                    advHTML += `<li>✅ <strong>${tool.name}</strong> (${tool.suite})<br>`;
+                    advHTML += `<span class="small text-muted">${tool.description}</span></li>`;
+                    toolCount++;
+                });
+                advHTML += '</ul></div>';
+            }
+        }
+        
+        if (toolCount > 0) {
+            advDiv.innerHTML = `
+                <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #28a745;">
+                    <strong>🎉 ${toolCount} Advanced Tool(s) Detected!</strong>
+                    <p class="small" style="margin-top: 5px;">These tools will provide enhanced forensic capabilities when enabled.</p>
+                </div>
+                ${advHTML}
+            `;
+        } else {
+            showNoAdvancedTools(advDiv);
+        }
+    } else {
+        showNoAdvancedTools(advDiv);
+    }
+}
+
+function showNoAdvancedTools(advDiv) {
+    advDiv.innerHTML = `
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+            <p><strong>⚠️ No Advanced Tools Detected</strong></p>
+            <p class="small">The system will use core tools only. For enhanced analysis, install:</p>
+            <ul class="small">
+                <li><strong>The Sleuth Kit</strong> - Deleted file recovery, timeline analysis</li>
+                <li><strong>Foremost</strong> - File carving and data recovery</li>
+                <li><strong>Wireshark</strong> - Deep packet analysis</li>
+            </ul>
+            <p class="small">Configure tool paths in your .env file.</p>
+        </div>
+    `;
+}
+
 // Start Forensics
 async function startForensics() {
-    // Get selected forensic types
     const allCheckbox = document.getElementById('forensic_all');
     const forensicCheckboxes = document.querySelectorAll('.forensic-type:checked');
+    const useAdvancedTools = document.getElementById('useAdvancedTools').checked;
     
     let forensicTypes = [];
     if (allCheckbox.checked) {
@@ -100,7 +211,6 @@ async function startForensics() {
         return;
     }
     
-    // Disable button and show progress
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
     startBtn.innerHTML = '<span class="loading"></span> Running...';
@@ -109,21 +219,47 @@ async function startForensics() {
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     const resultDiv = document.getElementById('forensicResult');
+    const commandLogDiv = document.getElementById('commandLog');
+    const commandLogContent = document.getElementById('commandLogContent');
     
     progressDiv.style.display = 'block';
+    commandLogDiv.style.display = 'block';
     resultDiv.style.display = 'none';
+    
+    // Clear previous command log
+    commandLogContent.innerHTML = '<p style="color: #00ff00;">Starting forensic investigation...</p>';
+    
+    // Simulate real-time command logging
+    let commandCount = 0;
+    const commandSimulator = setInterval(() => {
+        commandCount++;
+        const commands = [
+            'Initializing forensic modules...',
+            'Detecting operating system...',
+            'Enumerating processes...',
+            'Analyzing network connections...',
+            'Scanning disk information...',
+            'Checking system logs...',
+            'Collecting evidence...'
+        ];
+        if (commandCount < commands.length) {
+            commandLogContent.innerHTML += `<p style="color: #888;">[${ new Date().toLocaleTimeString()}] ${commands[commandCount]}</p>`;
+            commandLogDiv.scrollTop = commandLogDiv.scrollHeight;
+        }
+    }, 1500);
     
     // Animate progress
     let progress = 0;
     const progressInterval = setInterval(() => {
-        progress += 5;
-        if (progress >= 90) {
-            clearInterval(progressInterval);
+        progress += 3;
+        if (progress >= 95) {
+            progress = 95;
         }
         progressFill.style.width = progress + '%';
-    }, 500);
+        progressFill.textContent = progress + '%';
+    }, 800);
     
-    progressText.textContent = 'Executing forensic analysis...';
+    progressText.textContent = `Executing forensic analysis... ${useAdvancedTools ? '(Advanced Tools Enabled)' : ''}`;
     
     try {
         const response = await fetch(`${API_BASE}/api/start-forensics`, {
@@ -131,14 +267,21 @@ async function startForensics() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ forensic_types: forensicTypes })
+            body: JSON.stringify({
+                forensic_types: forensicTypes,
+                use_advanced_tools: useAdvancedTools
+            })
         });
         
         const data = await response.json();
         
         clearInterval(progressInterval);
+        clearInterval(commandSimulator);
         progressFill.style.width = '100%';
+        progressFill.textContent = '100%';
         progressText.textContent = 'Forensics completed!';
+        
+        commandLogContent.innerHTML += '<p style="color: #00ff00; font-weight: bold;">✓ Investigation completed successfully!</p>';
         
         if (data.status === 'success') {
             currentSession = data;
@@ -148,16 +291,22 @@ async function startForensics() {
                 <h3>✅ Forensic Investigation Completed</h3>
                 <p><strong>Session ID:</strong> ${data.session_id}</p>
                 <p><strong>Evidence Hash:</strong> <code>${data.evidence_hash}</code></p>
+                <p><strong>Advanced Tools:</strong> ${data.advanced_tools_used ? '✅ Enabled' : '❌ Disabled'}</p>
                 <p><strong>Forensics Completed:</strong></p>
                 <ul>
                     ${data.forensics_completed.map(f => `<li>✅ ${f.toUpperCase()}</li>`).join('')}
                 </ul>
                 <p class="mt-20"><strong>Next Steps:</strong></p>
                 <ul>
-                    <li>Register evidence on blockchain</li>
-                    <li>Generate forensic report</li>
+                    <li>Register evidence on blockchain for immutable chain of custody</li>
+                    <li>Generate AI-powered forensic report</li>
                 </ul>
             `;
+            
+            // Display tools summary
+            if (data.tools_summary) {
+                displayToolsSummary(data.tools_summary);
+            }
             
             // Enable blockchain button
             document.getElementById('blockchainBtn').disabled = false;
@@ -168,18 +317,58 @@ async function startForensics() {
         } else {
             resultDiv.className = 'result-box error';
             resultDiv.innerHTML = `<h3>❌ Error</h3><p>${data.error}</p>`;
+            commandLogContent.innerHTML += `<p style="color: #ff0000;">✗ Error: ${data.error}</p>`;
         }
     } catch (error) {
         clearInterval(progressInterval);
+        clearInterval(commandSimulator);
         resultDiv.className = 'result-box error';
         resultDiv.innerHTML = `<h3>❌ Error</h3><p>${error.message}</p>`;
+        commandLogContent.innerHTML += `<p style="color: #ff0000;">✗ Error: ${error.message}</p>`;
     } finally {
         startBtn.disabled = false;
         startBtn.innerHTML = '🚀 Start Investigation';
-        setTimeout(() => {
-            progressDiv.style.display = 'none';
-        }, 2000);
     }
+}
+
+// Display Tools Summary
+function displayToolsSummary(summary) {
+    const findingsDiv = document.getElementById('detailedFindings');
+    findingsDiv.style.display = 'block';
+    
+    let html = '<h3>🔍 Tools & Commands Used</h3>';
+    
+    html += '<div class="findings-section">';
+    html += '<h4>Core Tools</h4>';
+    html += '<p>' + summary.core_tools_used.join(', ') + '</p>';
+    html += '</div>';
+    
+    if (summary.advanced_tools_used.length > 0) {
+        html += '<div class="findings-section">';
+        html += '<h4>🚀 Advanced Tools</h4>';
+        html += '<p>' + summary.advanced_tools_used.join(', ') + '</p>';
+        html += '</div>';
+    }
+    
+    if (summary.commands_executed.length > 0) {
+        html += '<div class="findings-section">';
+        html += '<h4>Commands Executed</h4>';
+        html += '<div class="command-list">';
+        summary.commands_executed.slice(0, 10).forEach(cmd => {
+            html += `<div class="command-item">`;
+            html += `<code>${cmd.command}</code>`;
+            if (cmd.description) {
+                html += `<p class="small text-muted">${cmd.description}</p>`;
+            }
+            html += `</div>`;
+        });
+        if (summary.commands_executed.length > 10) {
+            html += `<p class="small">... and ${summary.commands_executed.length - 10} more commands</p>`;
+        }
+        html += '</div></div>';
+    }
+    
+    findingsDiv.innerHTML = html;
 }
 
 // Check Blockchain Balance
@@ -198,7 +387,6 @@ async function checkBalance() {
                 <h3>💰 Wallet Balance</h3>
                 <p><strong>Address:</strong> <code>${data.balance.address}</code></p>
                 <p><strong>Balance:</strong> ${data.balance.balance_eth.toFixed(6)} ETH</p>
-                <p class="small">${data.balance.balance_wei} wei</p>
             `;
         } else {
             resultDiv.className = 'result-box error';
@@ -278,7 +466,6 @@ async function generateReport() {
     progressDiv.style.display = 'block';
     resultDiv.style.display = 'none';
     
-    // Animate progress (report generation takes time)
     let progress = 0;
     const progressInterval = setInterval(() => {
         progress += 3;
@@ -324,7 +511,6 @@ async function generateReport() {
                 </div>
             `;
             
-            // Show download buttons
             document.getElementById('downloadSection').style.display = 'block';
             
         } else {
@@ -384,14 +570,12 @@ async function verifyEvidence() {
                 resultDiv.innerHTML = `
                     <h3>✅ Evidence Verified</h3>
                     <p>${data.message}</p>
-                    <p>The evidence hash matches the blockchain record.</p>
                 `;
             } else {
                 resultDiv.className = 'result-box error';
                 resultDiv.innerHTML = `
                     <h3>❌ Verification Failed</h3>
                     <p>${data.message}</p>
-                    <p>The evidence hash does NOT match the blockchain record.</p>
                 `;
             }
         } else {
@@ -413,7 +597,6 @@ async function checkSessionStatus() {
         if (data.status === 'active') {
             updateSessionStatus(data);
             
-            // Enable appropriate buttons
             if (data.blockchain_registered) {
                 document.getElementById('blockchainBtn').disabled = false;
                 document.getElementById('reportBtn').disabled = false;

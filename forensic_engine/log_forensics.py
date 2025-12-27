@@ -11,24 +11,30 @@ class LogForensics:
     Analyzes system logs for security events
     """
     
-    def __init__(self, session_dir):
+    def __init__(self, session_dir, use_advanced_tools=False):
         self.session_dir = session_dir
         self.output_dir = os.path.join(session_dir, 'logs')
+        self.use_advanced_tools = use_advanced_tools
         self.tools_used = []
+        self.advanced_tools_used = []
+        self.commands_executed = []
         self.os_type = platform.system()
         
     def execute(self):
         """Execute all log forensic operations"""
         print("[*] Starting Log Forensics...")
+        print(f"    Advanced Tools: {'ENABLED' if self.use_advanced_tools else 'DISABLED'}")
         
         results = {
             'forensic_type': 'log',
             'timestamp': datetime.now().isoformat(),
             'status': 'running',
             'os_type': self.os_type,
+            'advanced_tools_enabled': self.use_advanced_tools,
             'tools_used': [],
-            'findings': {},
-            'raw_outputs': {}
+            'advanced_tools_used': [],
+            'commands_executed': [],
+            'findings': {}
         }
         
         try:
@@ -41,6 +47,8 @@ class LogForensics:
             
             results['status'] = 'completed'
             results['tools_used'] = list(set(self.tools_used))
+            results['advanced_tools_used'] = list(set(self.advanced_tools_used))
+            results['commands_executed'] = self.commands_executed
             
         except Exception as e:
             results['status'] = 'error'
@@ -50,6 +58,14 @@ class LogForensics:
         self._save_json(results, 'log_forensics.json')
         
         return results
+    
+    def _log_command(self, command, description):
+        """Log command execution"""
+        self.commands_executed.append({
+            'command': command,
+            'description': description,
+            'timestamp': datetime.now().isoformat()
+        })
     
     def _analyze_linux_logs(self):
         """Analyze Linux system logs"""

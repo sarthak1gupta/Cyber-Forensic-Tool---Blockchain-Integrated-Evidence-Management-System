@@ -400,3 +400,202 @@ body {
 .hidden {
     display: none;
 }
+
+.small {
+    font-size: 0.9em;
+}
+
+.text-muted {
+    color: #666;
+}
+
+/* System Info Styles */
+.system-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.info-value {
+    font-size: 1.1em;
+    color: #333;
+}
+
+/* Tools Info Styles */
+.tools-info {
+    margin-top: 15px;
+}
+
+.tools-section {
+    margin-bottom: 25px;
+}
+
+.tools-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+}
+
+.tool-list {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.tool-category {
+    margin-bottom: 20px;
+}
+
+.tool-category h4 {
+    color: #764ba2;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.tool-category ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.tool-category li {
+    padding: 10px;
+    margin: 5px 0;
+    background: white;
+    border-radius: 6px;
+    border-left: 3px solid #28a745;
+}
+
+.tool-category li:last-child {
+    border-bottom: none;
+}
+
+/* Advanced Tools Option */
+.advanced-tools-option {
+    margin: 20px 0;
+}
+
+.advanced-tools-option label {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.advanced-tools-option label:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Command Log Styles */
+.command-log {
+    margin-top: 20px;
+    background: #1e1e1e;
+    color: #00ff00;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'Courier New', 'Consolas', monospace;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.command-log h3 {
+    color: #00ff00;
+    margin-bottom: 15px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.command-log-content {
+    font-size: 0.9em;
+}
+
+.command-entry {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid #00ff00;
+    padding-left: 10px;
+}
+
+.command-entry .command {
+    color: #00ff00;
+    font-weight: bold;
+}
+
+.command-entry .description {
+    color: #888;
+    font-size: 0.85em;
+    margin-top: 3px;
+}
+
+/* Detailed Findings */
+.detailed-findings {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.findings-section {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.findings-section h4 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+}
+
+.findings-section p {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.command-list {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.command-item {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    border-left: 3px solid #667eea;
+}
+
+.command-item code {
+    background: #1e1e1e;
+    color: #00ff00;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 5px;
+    font-family: 'Courier New', monospace;
+}

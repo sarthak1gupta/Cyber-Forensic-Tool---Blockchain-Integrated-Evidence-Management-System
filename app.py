@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import json
 from datetime import datetime
-# trying to commit
+
 from config import Config
 from forensic_engine.orchestrator import ForensicOrchestrator
 from blockchain.blockchain_handler import BlockchainHandler
@@ -31,7 +31,24 @@ def check_tools():
         available_tools = ForensicOrchestrator.list_available_tools()
         return jsonify({
             'status': 'success',
-            'tools': available_tools
+            'tools': available_tools,
+            'system_info': Config.get_system_info()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/system-info', methods=['GET'])
+def system_info():
+    """Get system information"""
+    try:
+        return jsonify({
+            'status': 'success',
+            'system': Config.get_system_info(),
+            'core_tools': Config.CORE_TOOLS,
+            'optional_tools': Config.OPTIONAL_TOOLS
         })
     except Exception as e:
         return jsonify({
@@ -71,6 +88,7 @@ def start_forensics():
     try:
         data = request.json
         forensic_types = data.get('forensic_types', ['all'])
+        use_advanced_tools = data.get('use_advanced_tools', False)
         
         # Create session directory
         session_dir, session_id = Config.create_session_directory()
@@ -80,10 +98,11 @@ def start_forensics():
         print(f"Session ID: {session_id}")
         print(f"Session Directory: {session_dir}")
         print(f"Forensic Types: {', '.join(forensic_types)}")
+        print(f"Advanced Tools: {'ENABLED' if use_advanced_tools else 'DISABLED'}")
         print(f"{'='*60}\n")
         
         # Initialize orchestrator
-        orchestrator = ForensicOrchestrator(session_dir, session_id)
+        orchestrator = ForensicOrchestrator(session_dir, session_id, use_advanced_tools)
         
         # Execute forensics
         evidence_data = orchestrator.execute_forensics(forensic_types)
@@ -101,7 +120,8 @@ def start_forensics():
             'session_dir': session_dir,
             'evidence_data': evidence_data,
             'evidence_hash': evidence_hash,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'use_advanced_tools': use_advanced_tools
         }
         
         return jsonify({
@@ -109,11 +129,15 @@ def start_forensics():
             'session_id': session_id,
             'session_dir': session_dir,
             'evidence_hash': evidence_hash,
-            'forensics_completed': list(evidence_data['forensics'].keys())
+            'forensics_completed': list(evidence_data['forensics'].keys()),
+            'advanced_tools_used': use_advanced_tools,
+            'tools_summary': evidence_data.get('tools_summary', {})
         })
     
     except Exception as e:
         print(f"\n[!] Error in forensic execution: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'status': 'error',
             'error': str(e)
